@@ -1,0 +1,11 @@
+GOOS=linux go build -o main
+zip deployment.zip main knownWords.txt
+aws lambda create-function \
+  --region us-west-1 \
+  --function-name SpwnnLambda \
+  --zip-file fileb://./deployment.zip \
+  --runtime go1.x \
+  --tracing-config Mode=Active \
+  --role arn:aws:iam::480446375602:role/lambda-s3-execution-role \
+  --handler main
+
