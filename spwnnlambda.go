@@ -35,7 +35,7 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		return events.APIGatewayProxyResponse{}, ErrNoWordToCheck
 	}
 
-	correctedWords, _ := spwnn.CorrectSpelling(dict, wordToCheck)
+	correctedWords, _ := spwnn.CorrectSpelling(dict, wordToCheck, false /* strictLen */)
 	var resultText string
 	for _, val := range correctedWords {
 		resultText = resultText + val.Word + "\n"
