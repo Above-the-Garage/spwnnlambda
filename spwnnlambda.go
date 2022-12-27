@@ -6,7 +6,7 @@ package main
 
 import (
 	"errors"
-	"fmt"
+	//"fmt"
 	"log"
 
 	"github.com/above-the-garage/spwnn"
@@ -17,25 +17,22 @@ import (
 
 var (
 	// ErrNoWordToCheck is thrown when a name is not provided
-	ErrNoWordToCheck = errors.New("PathParameter did not contain a value for 'check'")
+	ErrNoWordToCheck = errors.New("Query did not contain a value for '?word='")
 
-	// Read dictionary once on startup; reuse if lambda is called w/o shutting down
+	// Read dictionary once on startup; will be reused if lambda is called w/o shutting down
 	dict *spwnn.SpwnnDictionary
 )
 
-// Handler returns an array of words that match the request string
-// It uses Amazon API Gateway request/responses provided by the aws-lambda-go/events package,
-// See:  https://docs.aws.amazon.com/lambda/latest/dg/go-programming-model-handler-types.html
 func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 
-	wordToCheck := request.PathParameters["check"]
-	log.Printf("Spwnn request '%s'\n", wordToCheck)
+	wordToCorrect := request.QueryStringParameters["word"]
+	log.Printf("Spwnn request '%s'\n", wordToCorrect)
 
-	if len(wordToCheck) < 1 {
+	if len(wordToCorrect) < 1 {
 		return events.APIGatewayProxyResponse{}, ErrNoWordToCheck
 	}
 
-	correctedWords, _ := spwnn.CorrectSpelling(dict, wordToCheck, false /* strictLen */)
+	correctedWords, _ := spwnn.CorrectSpelling(dict, wordToCorrect, false /* strictLen */)
 	var resultText string
 	for _, val := range correctedWords {
 		resultText = resultText + val.Word + "\n"
@@ -56,7 +53,6 @@ func InitDict() {
 }
 
 func main() {
-	fmt.Println("main")
 	// Read dictionary once at startup
 	// Will naturally be reused if this lambda is called multiple
 	// times without getting shut down
