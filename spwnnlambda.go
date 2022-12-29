@@ -6,8 +6,9 @@ package main
 
 import (
 	"errors"
-	//"fmt"
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/above-the-garage/spwnn"
 
@@ -21,10 +22,22 @@ var (
 
 	// Read dictionary once on startup; will be reused if lambda is called w/o shutting down
 	dict *spwnn.SpwnnDictionary
+
+	// Startup message shows time to load dictionary
+	startTimeMsg string
 )
 
 func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 
+	var resultText string
+
+	resultText = startTimeMsg
+	startTimeMsg = "Lambda reused from previous execution\n"
+	resultText = resultText + "\n"
+
+	start := time.Now()
+
+	_, strict := request.QueryStringParameters["strict"]
 	wordToCorrect := request.QueryStringParameters["word"]
 	log.Printf("Spwnn request '%s'\n", wordToCorrect)
 
@@ -32,11 +45,13 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		return events.APIGatewayProxyResponse{}, ErrNoWordToCheck
 	}
 
-	correctedWords, _ := spwnn.CorrectSpelling(dict, wordToCorrect, false /* strictLen */)
-	var resultText string
+	correctedWords, _ := spwnn.CorrectSpelling(dict, wordToCorrect, strict)
 	for _, val := range correctedWords {
 		resultText = resultText + val.Word + "\n"
 	}
+
+	duration := time.Since(start)
+	resultText = resultText + fmt.Sprintln("\nExecution ", duration)
 
 	log.Printf("Spwnn result: %v\n", resultText)
 
@@ -56,7 +71,10 @@ func main() {
 	// Read dictionary once at startup
 	// Will naturally be reused if this lambda is called multiple
 	// times without getting shut down
+	start := time.Now()
 	InitDict()
+	duration := time.Since(start)
+	startTimeMsg = fmt.Sprintln("Lambda start and dictionary load", duration)
 	lambda.Start(Handler)
 }
 
