@@ -37,7 +37,22 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 	start := time.Now()
 
-	_, strict := request.QueryStringParameters["strict"]
+	// Optional "?length=any" (default) or "?length=same";
+	// "?strict" is kept as a shorthand for "?length=same"
+	lengthMatch := spwnn.AnyLength
+	if _, strict := request.QueryStringParameters["strict"]; strict {
+		lengthMatch = spwnn.SameLength
+	}
+	if name, ok := request.QueryStringParameters["length"]; ok {
+		var err error
+		lengthMatch, err = parseLength(name)
+		if err != nil {
+			return events.APIGatewayProxyResponse{
+					Body:       err.Error() + "\n",
+					StatusCode: 400},
+				nil
+		}
+	}
 	wordToCorrect := request.QueryStringParameters["word"]
 	log.Printf("Spwnn request '%s'\n", wordToCorrect)
 
@@ -45,7 +60,20 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		return events.APIGatewayProxyResponse{}, ErrNoWordToCheck
 	}
 
-	correctedWords, _ := spwnn.CorrectSpelling(dict, wordToCorrect, strict)
+	// Optional "?scoring=capped" (default) or "?scoring=original"
+	scoring := spwnn.CappedPairs
+	if name, ok := request.QueryStringParameters["scoring"]; ok {
+		var err error
+		scoring, err = parseScoring(name)
+		if err != nil {
+			return events.APIGatewayProxyResponse{
+					Body:       err.Error() + "\n",
+					StatusCode: 400},
+				nil
+		}
+	}
+
+	correctedWords, _ := spwnn.CorrectSpelling(dict, wordToCorrect, lengthMatch, scoring)
 	for _, val := range correctedWords {
 		resultText = resultText + val.Word + "\n"
 	}
@@ -76,6 +104,28 @@ func main() {
 	duration := time.Since(start)
 	startTimeMsg = fmt.Sprintln("Lambda start and dictionary load", duration)
 	lambda.Start(Handler)
+}
+
+// parseScoring converts the scoring query text to a spwnn.PairScoring
+func parseScoring(name string) (spwnn.PairScoring, error) {
+	switch name {
+	case "capped":
+		return spwnn.CappedPairs, nil
+	case "original":
+		return spwnn.OriginalPairs, nil
+	}
+	return spwnn.CappedPairs, fmt.Errorf("unknown scoring %q (want capped or original)", name)
+}
+
+// parseLength converts the length query text to a spwnn.LengthMatch
+func parseLength(name string) (spwnn.LengthMatch, error) {
+	switch name {
+	case "any":
+		return spwnn.AnyLength, nil
+	case "same":
+		return spwnn.SameLength, nil
+	}
+	return spwnn.AnyLength, fmt.Errorf("unknown length %q (want any or same)", name)
 }
 
 // Editorial comment:  Lambdas are awesome.
