@@ -92,7 +92,7 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 // InitDict loads the dictionary from knownWords.txt
 func InitDict() {
-	dict = spwnn.ReadDictionary("knownWords.txt", false)
+	dict = spwnn.ReadDictionary("knownWords.txt")
 }
 
 func main() {
