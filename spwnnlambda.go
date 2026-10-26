@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/above-the-garage/spwnn"
@@ -60,16 +61,6 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 				nil
 		}
 	}
-	wordToCorrect := request.QueryStringParameters["word"]
-	log.Printf("Spwnn request '%s'\n", wordToCorrect)
-
-	if len(wordToCorrect) < 1 {
-		return events.APIGatewayProxyResponse{
-				Body:       ErrNoWordToCheck.Error() + "\n",
-				StatusCode: 400},
-			nil
-	}
-
 	// Optional "?scoring=capped" (default) or "?scoring=original"
 	scoring := spwnn.CappedPairs
 	if name, ok := request.QueryStringParameters["scoring"]; ok {
@@ -81,6 +72,23 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 					StatusCode: 400},
 				nil
 		}
+	}
+
+	if _, cray := request.QueryStringParameters["craycray"]; cray {
+		return events.APIGatewayProxyResponse{
+				Body:       resultText + crayCrayText(lengthMatch, scoring) + fmt.Sprintln("\nExecution ", time.Since(start)),
+				StatusCode: 200},
+			nil
+	}
+
+	wordToCorrect := request.QueryStringParameters["word"]
+	log.Printf("Spwnn request '%s'\n", wordToCorrect)
+
+	if len(wordToCorrect) < 1 {
+		return events.APIGatewayProxyResponse{
+				Body:       ErrNoWordToCheck.Error() + "\n",
+				StatusCode: 400},
+			nil
 	}
 
 	correctedWords, _ := spwnn.CorrectSpelling(dict, wordToCorrect, lengthMatch, scoring)
@@ -126,10 +134,55 @@ Query parameters:
   &length=any         keep best matches of any length (default)
   &length=same        keep only best matches the same length as WORD
   &strict             shorthand for &length=same
+  ?craycray           run horribly misspelled words (honors scoring, length)
   ?help               show this help
 
 Example: ?word=seperate&length=same
 `
+
+// crayCrayCases are horribly misspelled words paired with the intended word.
+var crayCrayCases = [][2]string{
+	{"anthropolojikal", "anthropological"},
+	{"sirkumstanses", "circumstances"},
+	{"sirkumferense", "circumference"},
+	{"enntrepranoor", "entrepreneur"},
+	{"ekspeeriense", "experience"},
+	{"kommunikashun", "communication"},
+	{"rekomendashun", "recommendation"},
+	{"mathamatishun", "mathematician"},
+	{"konshusness", "consciousness"},
+	{"enviromint", "environment"},
+	{"intelijense", "intelligence"},
+	{"shedjule", "schedule"},
+	{"restront", "restraint"},
+	{"prawnunseeashun", "pronunciation"},
+}
+
+// crayCrayText runs the horrible misspellings: "only" when the intended
+// word is the single winner, "tie" when it shares the top score, and
+// "miss" when it is not among the winners.
+func crayCrayText(lengthMatch spwnn.LengthMatch, scoring spwnn.PairScoring) string {
+	var b strings.Builder
+	b.WriteString("Horrible misspellings:\n")
+	for _, c := range crayCrayCases {
+		want := "_" + c[1] + "_"
+		results, _ := spwnn.CorrectSpelling(dict, c[0], lengthMatch, scoring)
+		status := "miss"
+		for _, r := range results {
+			if r.Word == want {
+				status = "tie"
+				if len(results) == 1 {
+					status = "only"
+				}
+			}
+		}
+		fmt.Fprintf(&b, "  %-5s %s -> %s\n", status, c[0], want)
+		for _, r := range results {
+			fmt.Fprintf(&b, "        %d%%  %s\n", int(r.Score*100), r.Word)
+		}
+	}
+	return b.String()
+}
 
 // parseScoring converts the scoring query text to a spwnn.PairScoring
 func parseScoring(name string) (spwnn.PairScoring, error) {
