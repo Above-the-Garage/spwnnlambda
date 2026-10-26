@@ -18,7 +18,7 @@ import (
 
 var (
 	// ErrNoWordToCheck is thrown when a name is not provided
-	ErrNoWordToCheck = errors.New("Query did not contain a value for '?word='")
+	ErrNoWordToCheck = errors.New("Query did not contain a value for '?word=' (try '?help')")
 
 	// Read dictionary once on startup; will be reused if lambda is called w/o shutting down
 	dict *spwnn.SpwnnDictionary
@@ -28,6 +28,13 @@ var (
 )
 
 func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+
+	if _, help := request.QueryStringParameters["help"]; help {
+		return events.APIGatewayProxyResponse{
+				Body:       helpText,
+				StatusCode: 200},
+			nil
+	}
 
 	var resultText string
 
@@ -105,6 +112,21 @@ func main() {
 	startTimeMsg = fmt.Sprintln("Lambda start and dictionary load", duration)
 	lambda.Start(Handler)
 }
+
+const helpText = `spwnn spelling corrector
+
+Query parameters:
+  ?word=WORD          word to correct (required)
+  &scoring=capped     credit each letter pair at most as often as the
+                      dictionary word has it (default)
+  &scoring=original   credit every repeated letter pair (old scoring)
+  &length=any         keep best matches of any length (default)
+  &length=same        keep only best matches the same length as WORD
+  &strict             shorthand for &length=same
+  ?help               show this help
+
+Example: ?word=speling&length=same
+`
 
 // parseScoring converts the scoring query text to a spwnn.PairScoring
 func parseScoring(name string) (spwnn.PairScoring, error) {
