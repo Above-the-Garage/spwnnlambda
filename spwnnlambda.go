@@ -64,7 +64,10 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	log.Printf("Spwnn request '%s'\n", wordToCorrect)
 
 	if len(wordToCorrect) < 1 {
-		return events.APIGatewayProxyResponse{}, ErrNoWordToCheck
+		return events.APIGatewayProxyResponse{
+				Body:       ErrNoWordToCheck.Error() + "\n",
+				StatusCode: 400},
+			nil
 	}
 
 	// Optional "?scoring=capped" (default) or "?scoring=original"
@@ -125,7 +128,7 @@ Query parameters:
   &strict             shorthand for &length=same
   ?help               show this help
 
-Example: ?word=speling&length=same
+Example: ?word=seperate&length=same
 `
 
 // parseScoring converts the scoring query text to a spwnn.PairScoring
