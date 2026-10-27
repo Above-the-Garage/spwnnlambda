@@ -127,7 +127,7 @@ func main() {
 const helpText = `spwnn spelling corrector
 
 Query parameters:
-  ?word=WORD          word to correct (required)
+  ?word=WORD          word to correct
   &scoring=capped     credit each letter pair at most as often as the
                       dictionary word has it (default)
   &scoring=original   credit every repeated letter pair (old scoring)
